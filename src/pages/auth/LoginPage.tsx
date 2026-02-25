@@ -119,7 +119,7 @@ function LoginForm({ onSubmit, isLoading }: LoginFormProps) {
           <Input
             id="email"
             type="email"
-            placeholder="e.g. alex@example.com"
+            placeholder="ram@example.com"
             className="pr-10 bg-white"
             {...register('email')}
           />
@@ -134,12 +134,12 @@ function LoginForm({ onSubmit, isLoading }: LoginFormProps) {
       <div className="flex flex-col gap-1.5">
         <div className="flex items-center justify-between">
           <Label htmlFor="password">Password</Label>
-          <Link
+          {/* <Link
             to="/forgot-password"
             className="text-xs text-primary font-medium hover:underline"
           >
             Forgot Password?
-          </Link>
+          </Link> */}
         </div>
         <div className="relative">
           <Input
