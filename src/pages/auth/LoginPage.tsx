@@ -51,7 +51,7 @@ function LoginHeader() {
   return (
     <div className="w-full flex items-center px-4 pt-6 pb-4">
       <span className="flex-1 text-center text-base font-semibold text-gray-900">
-        Event Planner
+        Evently
       </span>
     </div>
   );
