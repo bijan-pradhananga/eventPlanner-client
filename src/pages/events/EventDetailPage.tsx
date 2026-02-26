@@ -8,16 +8,28 @@ import {
   Lock,
   Pencil,
   Trash2,
-  ExternalLink,
+  Check,
+  X,
+  HelpCircle,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Separator } from '@/components/ui/separator';
 import { Badge } from '@/components/ui/badge';
+import { Card } from '@/components/ui/card';
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog';
 import LoadingSpinner from '@/components/shared/LoadingSpinner';
 import TagBadge from '@/components/shared/TagBadge';
 import DeleteConfirmDialog from '@/components/shared/DeleteConfirmDialog';
 import { useAppDispatch, useAppSelector } from '@/store/hooks';
 import { fetchEventById, deleteEvent, clearSelectedEvent } from '@/store/eventsSlice';
+import { fetchUserRSVP, fetchEventRSVPs, upsertRSVP, deleteRSVP } from '@/store/rsvpsSlice';
+import type { RSVPStatus } from '@/types';
+import { toast } from 'sonner';
 
 
 const fallbackImages = [
@@ -33,14 +45,23 @@ export default function EventDetailPage() {
   const dispatch = useAppDispatch();
 
   const { selectedEvent: event, isLoading } = useAppSelector((s) => s.events);
-  const { user } = useAppSelector((s) => s.auth);
+  const { user, isAuthenticated } = useAppSelector((s) => s.auth);
+  const { myEventRSVP, eventRSVPs, eventRSVPSummaries, isLoading: rsvpLoading } = useAppSelector((s) => s.rsvps);
+
+  const eventId = Number(id);
 
   useEffect(() => {
-    if (id) dispatch(fetchEventById(Number(id)));
+    if (id) {
+      dispatch(fetchEventById(eventId));
+      dispatch(fetchEventRSVPs(eventId));
+      if (isAuthenticated) {
+        dispatch(fetchUserRSVP(eventId));
+      }
+    }
     return () => {
       dispatch(clearSelectedEvent());
     };
-  }, [id, dispatch]);
+  }, [id, dispatch, eventId, isAuthenticated]);
 
   if (isLoading) return <LoadingSpinner />;
 
@@ -58,10 +79,13 @@ export default function EventDetailPage() {
   const isOwner = user?.id === event.creator_id;
   const isPast = new Date(event.event_date) < new Date();
   const coverImage = event.cover_image ?? fallbackImages[event.id % fallbackImages.length];
+  const userRSVP = myEventRSVP[eventId];
+  const rsvpSummary = eventRSVPSummaries[eventId];
+  const attendees = eventRSVPs[eventId] || [];
 
   return (
     <div className="max-w-5xl mx-auto flex flex-col gap-6">
-   
+
       <EventHero
         title={event.title}
         eventDate={new Date(event.event_date)}
@@ -76,6 +100,9 @@ export default function EventDetailPage() {
         <div className="lg:col-span-2 flex flex-col gap-5">
           <AboutSection description={event.description} />
           <TagsSection tags={event.tags ?? []} />
+          {rsvpSummary && attendees.length > 0 && (
+            <RSVPSection summary={rsvpSummary} attendees={attendees} isOwner={isOwner} />
+          )}
           {event.creator && <OrganizerCard creator={event.creator} />}
         </div>
 
@@ -87,6 +114,14 @@ export default function EventDetailPage() {
             startDate={new Date(event.event_date)}
             endDate={event.event_end_date ? new Date(event.event_end_date) : null}
           />
+
+          {!isOwner && !isPast && isAuthenticated && (
+            <RSVPActionsCard
+              eventId={eventId}
+              currentRSVP={userRSVP?.status}
+              isLoading={rsvpLoading}
+            />
+          )}
 
           <LocationCard location={event.location} />
 
@@ -182,14 +217,7 @@ function OrganizerCard({ creator }: { creator: { first_name: string; last_name: 
             <p className="text-gray-400 text-xs">Event Organizer</p>
           </div>
         </div>
-        <Button
-          size="sm"
-          variant="outline"
-          className="text-white border-white/20 bg-white/10 hover:bg-white/20 gap-1.5"
-        >
-          <ExternalLink className="w-3.5 h-3.5" />
-          Contact
-        </Button>
+
       </div>
     </div>
   );
@@ -315,3 +343,257 @@ function OwnerActions({ eventId }: { eventId: number }) {
   );
 }
 
+// RSVP Components
+function RSVPActionsCard({
+  eventId,
+  currentRSVP,
+  isLoading
+}: {
+  eventId: number;
+  currentRSVP?: RSVPStatus;
+  isLoading: boolean;
+}) {
+  const dispatch = useAppDispatch();
+  const isSubmitting = useAppSelector((s) => s.rsvps.isSubmitting);
+
+  const handleRSVP = async (status: RSVPStatus) => {
+    const result = await dispatch(upsertRSVP({ eventId, data: { status } }));
+    if (upsertRSVP.fulfilled.match(result)) {
+      toast.success(`RSVP updated to "${status.toUpperCase()}"`);
+    } else {
+      toast.error('Failed to update RSVP');
+    }
+  };
+
+  const handleCancel = async () => {
+    const result = await dispatch(deleteRSVP(eventId));
+    if (deleteRSVP.fulfilled.match(result)) {
+      toast.success('RSVP cancelled');
+    } else {
+      toast.error('Failed to cancel RSVP');
+    }
+  };
+
+  if (isLoading) {
+    return (
+      <Card className="p-5">
+        <div className="h-32 flex items-center justify-center">
+          <div className="w-6 h-6 border-2 border-primary border-t-transparent rounded-full animate-spin" />
+        </div>
+      </Card>
+    );
+  }
+
+  return (
+    <Card className="p-5">
+      <h3 className="text-sm font-semibold text-gray-900 mb-3">RSVP to this Event</h3>
+
+      <div className="flex flex-col gap-2">
+        <Button
+          variant={currentRSVP === 'yes' ? 'default' : 'outline'}
+          size="sm"
+          className="w-full justify-start gap-2"
+          onClick={() => handleRSVP('yes')}
+          disabled={isSubmitting}
+        >
+          <Check className="w-4 h-4" />
+          Going
+          {currentRSVP === 'yes' && <span className="ml-auto text-xs">✓</span>}
+        </Button>
+
+        <Button
+          variant={currentRSVP === 'maybe' ? 'default' : 'outline'}
+          size="sm"
+          className="w-full justify-start gap-2"
+          onClick={() => handleRSVP('maybe')}
+          disabled={isSubmitting}
+        >
+          <HelpCircle className="w-4 h-4" />
+          Maybe
+          {currentRSVP === 'maybe' && <span className="ml-auto text-xs">✓</span>}
+        </Button>
+
+        <Button
+          variant={currentRSVP === 'no' ? 'default' : 'outline'}
+          size="sm"
+          className="w-full justify-start gap-2"
+          onClick={() => handleRSVP('no')}
+          disabled={isSubmitting}
+        >
+          <X className="w-4 h-4" />
+          Can't Go
+          {currentRSVP === 'no' && <span className="ml-auto text-xs">✓</span>}
+        </Button>
+      </div>
+
+      {currentRSVP && (
+        <>
+          <Separator className="my-3" />
+          <Button
+            variant="ghost"
+            size="sm"
+            className="w-full text-xs text-muted-foreground hover:text-destructive"
+            onClick={handleCancel}
+            disabled={isSubmitting}
+          >
+            Cancel RSVP
+          </Button>
+        </>
+      )}
+    </Card>
+  );
+}
+
+function RSVPSection({
+  summary,
+  attendees,
+
+}: {
+  summary: { yes: number; maybe: number; no: number };
+  attendees: any[];
+  isOwner: boolean;
+}) {
+  const [showAllAttendeesModal, setShowAllAttendeesModal] = useState(false);
+  const going = attendees.filter((a) => a.status === 'yes');
+  const maybe = attendees.filter((a) => a.status === 'maybe');
+  const displayAttendees = [...going, ...maybe];
+  const totalCount = summary.yes + summary.maybe + summary.no;
+
+  // Function to get initials from name
+  const getInitials = (firstName: string, lastName: string) => {
+    return `${firstName?.charAt(0) || ''}${lastName?.charAt(0) || ''}`.toUpperCase();
+  };
+
+  // Function to get random avatar color
+  const getAvatarColor = (id: number) => {
+    const colors = [
+      'bg-blue-500',
+      'bg-green-500',
+      'bg-purple-500',
+      'bg-pink-500',
+      'bg-indigo-500',
+      'bg-yellow-500',
+      'bg-red-500',
+      'bg-gray-500'
+    ];
+    return colors[id % colors.length];
+  };
+
+  const getStatusLabel = (status: string) => {
+    switch (status) {
+      case 'yes': return 'Attending';
+      case 'maybe': return 'Interested';
+      default: return 'Attending';
+    }
+  };
+
+  const getStatusColor = (status: string) => {
+    switch (status) {
+      case 'yes': return 'text-green-600';
+      case 'maybe': return 'text-yellow-600';
+      default: return 'text-green-600';
+    }
+  };
+
+  return (
+    <Card className="p-6">
+      {/* Header */}
+      <div className="flex items-center justify-between">
+        <div>
+          <h2 className="text-lg font-semibold text-gray-900">Attendees</h2>
+          {/* Subtitle */}
+          <p className="text-sm text-muted-foreground">
+            {totalCount} people have RSVP'd
+          </p>
+        </div>
+
+        {displayAttendees.length > 2 && (
+          <Button 
+            variant="ghost" 
+            size="sm" 
+            className="text-blue-600 hover:text-blue-700 rounded-sm h-auto font-medium"
+            onClick={() => setShowAllAttendeesModal(true)}
+          >
+            View All
+          </Button>
+        )}
+      </div>
+
+
+
+      {/* Attendees Grid */}
+      {displayAttendees.length > 0 ? (
+        <div className="flex gap-4 overflow-x-auto pb-2">
+          {displayAttendees.slice(0, 4).map((rsvp) => (
+            <div key={rsvp.id} className="flex flex-col items-center min-w-20">
+              {/* Avatar */}
+              <div className={`w-12 h-12 rounded-full flex items-center justify-center text-white font-medium text-sm mb-2 ${getAvatarColor(rsvp.id)}`}>
+                {rsvp.user
+                  ? getInitials(rsvp.user.first_name, rsvp.user.last_name)
+                  : '?'
+                }
+              </div>
+
+              {/* Name */}
+              <p className="text-xs font-medium text-gray-900 text-center leading-tight mb-1">
+                {rsvp.user
+                  ? `${rsvp.user.first_name} ${rsvp.user.last_name}`.length > 12
+                    ? `${rsvp.user.first_name} ${rsvp.user.last_name}`.slice(0, 12) + '...'
+                    : `${rsvp.user.first_name} ${rsvp.user.last_name}`
+                  : 'Anonymous'
+                }
+              </p>
+
+              {/* Status */}
+              <p className={`text-xs ${getStatusColor(rsvp.status)}`}>
+                {getStatusLabel(rsvp.status)}
+              </p>
+            </div>
+          ))}
+        </div>
+      ) : (
+        <div className="text-center py-8">
+          <p className="text-muted-foreground text-sm">No RSVPs yet</p>
+        </div>
+      )}
+
+      {/* All Attendees Modal */}
+      <Dialog open={showAllAttendeesModal} onOpenChange={setShowAllAttendeesModal}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>All Attendees ({displayAttendees.length})</DialogTitle>
+          </DialogHeader>
+          <div className="max-h-96 overflow-y-auto">
+            <div className="grid grid-cols-2 gap-4">
+              {displayAttendees.map((rsvp) => (
+                <div key={rsvp.id} className="flex items-center gap-3 p-2 rounded-lg hover:bg-gray-50">
+                  {/* Avatar */}
+                  <div className={`w-10 h-10 rounded-full flex items-center justify-center text-white font-medium text-xs ${getAvatarColor(rsvp.id)}`}>
+                    {rsvp.user
+                      ? getInitials(rsvp.user.first_name, rsvp.user.last_name)
+                      : '?'
+                    }
+                  </div>
+                  
+                  {/* Info */}
+                  <div className="flex-1 min-w-0">
+                    <p className="text-sm font-medium text-gray-900 truncate">
+                      {rsvp.user
+                        ? `${rsvp.user.first_name} ${rsvp.user.last_name}`
+                        : 'Anonymous'
+                      }
+                    </p>
+                    <p className={`text-xs ${getStatusColor(rsvp.status)}`}>
+                      {getStatusLabel(rsvp.status)}
+                    </p>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+    </Card>
+  );
+}
