@@ -16,4 +16,10 @@ export const authApi = {
 
   logout: (refreshToken: string) =>
     axiosInstance.post('/api/auth/logout', { refreshToken }),
+
+  verifyEmail: (token: string) =>
+    axiosInstance.post<ApiResponse<{ message: string }>>('/api/auth/verify-email', { token }),
+
+  resendVerificationEmail: () =>
+    axiosInstance.post<ApiResponse<{ message: string }>>('/api/auth/resend-verification'),
 };
