@@ -18,7 +18,7 @@ export default function SignUpPage() {
   const { isLoading, error, isAuthenticated } = useAppSelector((s) => s.auth);
 
   useEffect(() => {
-    if (isAuthenticated) navigate('/events');
+    if (isAuthenticated) navigate('/profile');
     return () => { dispatch(clearError()); };
   }, [isAuthenticated, navigate, dispatch]);
 
