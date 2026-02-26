@@ -507,7 +507,7 @@ function RSVPSection({
           </p>
         </div>
 
-        {displayAttendees.length > 2 && (
+        {displayAttendees.length > 4 && (
           <Button 
             variant="ghost" 
             size="sm" 
