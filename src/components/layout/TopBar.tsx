@@ -62,8 +62,9 @@ export default function TopBar() {
         onEventClick={handleEventClick}
       />
 
-      <MobileLogo />
+
       <div className="flex items-center gap-2 ml-auto">
+        <MobileLogo />
         <CreateEventButton onClick={() => navigate('/events/create')} />
       </div>
     </header>
@@ -123,7 +124,7 @@ function SearchResults({
   if (!show || !query.trim()) return null;
 
   return (
-    <div className="absolute top-full mt-2 left-0 right-0 bg-white border border-border rounded-lg shadow-lg z-50 max-h-96 overflow-y-auto">
+    <div className="absolute top-full mt-2 mx-4 left-0 right-0 bg-white border border-border rounded-lg shadow-lg z-50 max-h-96 overflow-y-auto">
       <div className="p-4">
         {isSearching ? (
           <div className="flex items-center justify-center py-8">
