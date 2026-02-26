@@ -1,14 +1,16 @@
-import { useEffect } from 'react';
-import { CalendarCheck, Mail, Calendar } from 'lucide-react';
+import { useEffect, useState } from 'react';
+import { CalendarCheck, Mail, Calendar, Shield, CheckCircle } from 'lucide-react';
 import { useAppDispatch, useAppSelector } from '@/store/hooks';
 import { fetchMyEvents } from '@/store/eventsSlice';
+import { resendVerificationEmail } from '@/store/authSlice';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import { Button } from '@/components/ui/button';
 import LoadingSpinner from '@/components/shared/LoadingSpinner';
 import EventCard from '@/components/shared/EventCard';
 import { logoutUser } from '@/store/authSlice';
 import { LogOut } from 'lucide-react';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
+import { toast } from 'sonner';
 
 // Profile Page
 export default function ProfilePage() {
@@ -41,10 +43,28 @@ export default function ProfilePage() {
 
 function ProfileHeader({ user, initials }: { user: any; initials: string }) {
   const dispatch = useAppDispatch();
+  // const { isLoading } = useAppSelector((s) => s.auth);
+  const [isResending, setIsResending] = useState(false);
+  
   const handleLogout = async () => {
     await dispatch(logoutUser());
     window.location.href = '/login';
   };
+
+  const handleResendVerification = async () => {
+    if (isResending) return;
+    
+    setIsResending(true);
+    try {
+      await dispatch(resendVerificationEmail()).unwrap();
+      toast.success('Verification email sent! Please check your inbox.');
+    } catch (error) {
+      toast.error('Failed to send verification email. Please try again.');
+    } finally {
+      setIsResending(false);
+    }
+  };
+
   return (
     <div className="bg-white rounded-xl border border-border p-6">
       <div className="flex flex-col sm:flex-row sm:items-center gap-6">
@@ -61,8 +81,51 @@ function ProfileHeader({ user, initials }: { user: any; initials: string }) {
             <div className="flex items-center gap-2 text-muted-foreground mt-1">
               <Mail className="w-4 h-4" />
               <span className="text-sm">{user.email}</span>
+              {user.email_verified_at ? (
+                <div className="flex items-center gap-1 text-green-600">
+                  <CheckCircle className="w-4 h-4" />
+                  <span className="text-xs font-medium">Verified</span>
+                </div>
+              ) : (
+                <div className="flex items-center gap-1 text-amber-600">
+                  <Shield className="w-4 h-4" />
+                  <span className="text-xs font-medium">Unverified</span>
+                </div>
+              )}
             </div>
           </div>
+          
+          {/* Email Verification Banner */}
+          {!user.email_verified_at && (
+            <div className="bg-amber-50 border border-amber-200 rounded-lg p-3">
+              <div className="flex items-start gap-2">
+                <Shield className="w-4 h-4 text-amber-600 mt-0.5 shrink-0" />
+                <div className="flex-1 min-w-0">
+                  <p className="text-sm font-medium text-amber-800">Email not verified</p>
+                  <p className="text-xs text-amber-700 mt-1">
+                    Please verify your email to ensure account security and receive important notifications.
+                  </p>
+                </div>
+                <Button
+                  onClick={handleResendVerification}
+                  disabled={isResending}
+                  size="sm"
+                  variant="outline"
+                  className="shrink-0 text-xs border-amber-300 text-amber-700 hover:bg-amber-100"
+                >
+                  {isResending ? (
+                    <>
+                      <LoadingSpinner className="w-3 h-3 mr-1" />
+                      Sending...
+                    </>
+                  ) : (
+                    'Resend Email'
+                  )}
+                </Button>
+              </div>
+            </div>
+          )}
+
           {user.created_at && (
             <div className="flex items-center gap-2 text-muted-foreground">
               <Calendar className="w-4 h-4" />
@@ -153,6 +216,7 @@ function StatCard({
 }
 
 function RecentEvents({ myEvents, isLoading }: { myEvents: any[]; isLoading: boolean }) {
+  const navigate = useNavigate();
   return (
     <div className="bg-white rounded-xl border border-border p-6">
       <div className="flex items-center justify-between mb-6">
@@ -176,7 +240,7 @@ function RecentEvents({ myEvents, isLoading }: { myEvents: any[]; isLoading: boo
         <div className="text-center py-8 text-muted-foreground">
           <CalendarCheck className="w-12 h-12 mx-auto mb-4 opacity-50" />
           <p>No events created yet</p>
-          <Button className="mt-4">
+          <Button className="mt-4" onClick={() => navigate('/events/create')}>
             Create Your First Event
           </Button>
         </div>
