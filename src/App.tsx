@@ -7,6 +7,7 @@ import AppLayout from '@/components/layout/AppLayout';
 // Auth Pages
 import LoginPage from '@/pages/auth/LoginPage';
 import SignUpPage from '@/pages/auth/SignUpPage';
+import EmailVerificationPage from '@/pages/auth/EmailVerificationPage';
 
 // App Pages
 import DashboardPage from '@/pages/DashboardPage';
@@ -24,6 +25,7 @@ function App() {
         {/* Auth Routes */}
         <Route path="/login" element={<LoginPage />} />
         <Route path="/signup" element={<SignUpPage />} />
+        <Route path="/verify-email" element={<EmailVerificationPage />} />
 
         {/* Protected App Routes */}
         <Route element={<AppLayout />}>
