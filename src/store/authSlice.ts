@@ -66,6 +66,32 @@ export const logoutUser = createAsyncThunk(
   }
 );
 
+export const verifyEmail = createAsyncThunk(
+  'auth/verifyEmail',
+  async (token: string, { rejectWithValue }) => {
+    try {
+      const { data } = await authApi.verifyEmail(token);
+      return data.data;
+    } catch (err: unknown) {
+      const error = err as { response?: { data?: { error?: { message?: string } } } };
+      return rejectWithValue(error.response?.data?.error?.message ?? 'Email verification failed');
+    }
+  }
+);
+
+export const resendVerificationEmail = createAsyncThunk(
+  'auth/resendVerificationEmail',
+  async (_, { rejectWithValue }) => {
+    try {
+      const { data } = await authApi.resendVerificationEmail();
+      return data.data;
+    } catch (err: unknown) {
+      const error = err as { response?: { data?: { error?: { message?: string } } } };
+      return rejectWithValue(error.response?.data?.error?.message ?? 'Failed to resend verification email');
+    }
+  }
+);
+
 const authSlice = createSlice({
   name: 'auth',
   initialState,
@@ -145,6 +171,37 @@ const authSlice = createSlice({
       localStorage.removeItem('accessToken');
       localStorage.removeItem('refreshToken');
     });
+
+    // Verify Email
+    builder
+      .addCase(verifyEmail.pending, (state) => {
+        state.isLoading = true;
+        state.error = null;
+      })
+      .addCase(verifyEmail.fulfilled, (state) => {
+        state.isLoading = false;
+        if (state.user) {
+          state.user.email_verified_at = new Date().toISOString();
+        }
+      })
+      .addCase(verifyEmail.rejected, (state, action) => {
+        state.isLoading = false;
+        state.error = action.payload as string;
+      });
+
+    // Resend Verification Email
+    builder
+      .addCase(resendVerificationEmail.pending, (state) => {
+        state.isLoading = true;
+        state.error = null;
+      })
+      .addCase(resendVerificationEmail.fulfilled, (state) => {
+        state.isLoading = false;
+      })
+      .addCase(resendVerificationEmail.rejected, (state, action) => {
+        state.isLoading = false;
+        state.error = action.payload as string;
+      });
   },
 });
 
