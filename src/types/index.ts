@@ -144,3 +144,44 @@ export interface PaginatedResponse<T> {
   data: T[];
   pagination: Pagination;
 }
+
+// ─── RSVP ────────────────────────────────────────────────────────────────────
+
+export type RSVPStatus = 'yes' | 'no' | 'maybe';
+
+export interface RSVP {
+  id: number;
+  user_id: number;
+  event_id: number;
+  status: RSVPStatus;
+  created_at: string;
+  updated_at: string;
+  user?: User;
+  event?: Event;
+}
+
+export interface RSVPSummary {
+  yes: number;
+  no: number;
+  maybe: number;
+  total: number;
+}
+
+export interface EventRSVPsResponse {
+  rsvps: RSVP[];
+  summary: RSVPSummary;
+}
+
+export interface CreateRSVPPayload {
+  status: RSVPStatus;
+}
+
+export interface RSVPsState {
+  myRSVPs: RSVP[];
+  eventRSVPs: Record<number, RSVP[]>;
+  eventRSVPSummaries: Record<number, RSVPSummary>;
+  myEventRSVP: Record<number, RSVP | null>;
+  isLoading: boolean;
+  isSubmitting: boolean;
+  error: string | null;
+}
