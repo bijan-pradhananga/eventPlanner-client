@@ -1,7 +1,7 @@
 import { createSlice, createAsyncThunk } from '@reduxjs/toolkit';
 import type { PayloadAction } from '@reduxjs/toolkit';
 import { authApi } from '@/api/authApi';
-import type { AuthState, LoginPayload, RegisterPayload, User } from '@/types';
+import type { AuthState, LoginPayload, LoginResponse, RegisterPayload, User } from '@/types';
 
 const initialState: AuthState = {
   user: null,
@@ -12,15 +12,57 @@ const initialState: AuthState = {
   error: null,
 };
 
-export const loginUser = createAsyncThunk(
+export const loginUser = createAsyncThunk<
+  LoginResponse,
+  LoginPayload
+>(
   'auth/login',
-  async (payload: LoginPayload, { rejectWithValue }) => {
+  async (payload, { rejectWithValue }) => {
     try {
       const { data } = await authApi.login(payload);
       return data.data;
     } catch (err: unknown) {
       const error = err as { response?: { data?: { error?: { message?: string } } } };
       return rejectWithValue(error.response?.data?.error?.message ?? 'Login failed');
+    }
+  }
+);
+
+export const verify2FAUser = createAsyncThunk(
+  'auth/verify2FA',
+  async (payload: { tempToken: string; code: string }, { rejectWithValue }) => {
+    try {
+      const { data } = await authApi.verify2FA(payload);
+      return data.data;
+    } catch (err: unknown) {
+      const error = err as { response?: { data?: { error?: { message?: string } } } };
+      return rejectWithValue(error.response?.data?.error?.message ?? '2FA verification failed');
+    }
+  }
+);
+
+export const enable2FAUser = createAsyncThunk(
+  'auth/enable2FA',
+  async (_, { rejectWithValue }) => {
+    try {
+      const { data } = await authApi.enable2FA();
+      return data.data;
+    } catch (err: unknown) {
+      const error = err as { response?: { data?: { error?: { message?: string } } } };
+      return rejectWithValue(error.response?.data?.error?.message ?? 'Failed to enable 2FA');
+    }
+  }
+);
+
+export const disable2FAUser = createAsyncThunk(
+  'auth/disable2FA',
+  async (payload: { password: string }, { rejectWithValue }) => {
+    try {
+      const { data } = await authApi.disable2FA(payload);
+      return data.data;
+    } catch (err: unknown) {
+      const error = err as { response?: { data?: { error?: { message?: string } } } };
+      return rejectWithValue(error.response?.data?.error?.message ?? 'Failed to disable 2FA');
     }
   }
 );
@@ -113,12 +155,15 @@ const authSlice = createSlice({
       })
       .addCase(loginUser.fulfilled, (state, action) => {
         state.isLoading = false;
-        state.user = action.payload.user;
-        state.accessToken = action.payload.accessToken;
-        state.refreshToken = action.payload.refreshToken;
-        state.isAuthenticated = true;
-        localStorage.setItem('accessToken', action.payload.accessToken);
-        localStorage.setItem('refreshToken', action.payload.refreshToken);
+        if (!action.payload.requires2FA) {
+          state.user = action.payload.user;
+          state.accessToken = action.payload.accessToken;
+          state.refreshToken = action.payload.refreshToken;
+          state.isAuthenticated = true;
+          localStorage.setItem('accessToken', action.payload.accessToken);
+          localStorage.setItem('refreshToken', action.payload.refreshToken);
+        }
+        // requires2FA === true: navigation is handled in the component
       })
       .addCase(loginUser.rejected, (state, action) => {
         state.isLoading = false;
@@ -199,6 +244,60 @@ const authSlice = createSlice({
         state.isLoading = false;
       })
       .addCase(resendVerificationEmail.rejected, (state, action) => {
+        state.isLoading = false;
+        state.error = action.payload as string;
+      });
+
+    // verify 2FA
+    builder
+      .addCase(verify2FAUser.pending, (state) => {
+        state.isLoading = true;
+        state.error = null;
+      })
+      .addCase(verify2FAUser.fulfilled, (state, action) => {
+        state.isLoading = false;
+        state.user = action.payload.user;
+        state.accessToken = action.payload.accessToken;
+        state.refreshToken = action.payload.refreshToken;
+        state.isAuthenticated = true;
+        localStorage.setItem('accessToken', action.payload.accessToken);
+        localStorage.setItem('refreshToken', action.payload.refreshToken);
+      })
+      .addCase(verify2FAUser.rejected, (state, action) => {
+        state.isLoading = false;
+        state.error = action.payload as string;
+      });
+
+    // Enable 2FA
+    builder
+      .addCase(enable2FAUser.pending, (state) => {
+        state.isLoading = true;
+        state.error = null;
+      })
+      .addCase(enable2FAUser.fulfilled, (state) => {
+        state.isLoading = false;
+        if (state.user) {
+          state.user.two_factor_enabled = true;
+        }
+      })
+      .addCase(enable2FAUser.rejected, (state, action) => {
+        state.isLoading = false;
+        state.error = action.payload as string;
+      });
+
+    // Disable 2FA
+    builder
+      .addCase(disable2FAUser.pending, (state) => {
+        state.isLoading = true;
+        state.error = null;
+      })
+      .addCase(disable2FAUser.fulfilled, (state) => {
+        state.isLoading = false;
+        if (state.user) {
+          state.user.two_factor_enabled = false;
+        }
+      })
+      .addCase(disable2FAUser.rejected, (state, action) => {
         state.isLoading = false;
         state.error = action.payload as string;
       });
