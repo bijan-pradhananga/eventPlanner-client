@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
-import { Mail, Eye, EyeOff, LogIn, CalendarCheck } from 'lucide-react';
+import { Mail, Eye, EyeOff, LogIn, CalendarCheck, Loader2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -26,8 +26,18 @@ export default function LoginPage() {
     };
   }, [isAuthenticated, navigate, dispatch]);
 
-  const onSubmit = (values: LoginFormValues) => {
-    dispatch(loginUser(values));
+  const onSubmit = async (values: LoginFormValues) => {
+    try {
+      const result = await dispatch(loginUser(values)).unwrap();
+      if (result.requires2FA) {
+        navigate('/verify-2fa', {
+          state: { tempToken: result.tempToken, credentials: values },
+        });
+      }
+      // non-2FA: useEffect handles navigation via isAuthenticated
+    } catch {
+      // error is already in Redux state
+    }
   };
 
   return (
@@ -166,7 +176,9 @@ function LoginForm({ onSubmit, isLoading }: LoginFormProps) {
         className="w-full h-12 text-base font-semibold mt-2"
       >
         {isLoading ? (
-          'Logging in...'
+          <span className="flex items-center gap-2">
+            <Loader2 className="w-4 h-4 animate-spin text-white" /> Logging in...
+          </span>
         ) : (
           <span className="flex items-center gap-2">
             Login <LogIn className="w-4 h-4" />
