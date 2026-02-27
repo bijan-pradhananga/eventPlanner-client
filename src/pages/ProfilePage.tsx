@@ -1,10 +1,20 @@
 import { useEffect, useState } from 'react';
-import { CalendarCheck, Mail, Calendar, Shield, CheckCircle } from 'lucide-react';
+import { CalendarCheck, Mail, Calendar, Shield, CheckCircle, Lock } from 'lucide-react';
 import { useAppDispatch, useAppSelector } from '@/store/hooks';
 import { fetchMyEvents } from '@/store/eventsSlice';
-import { resendVerificationEmail } from '@/store/authSlice';
+import { resendVerificationEmail, enable2FAUser, disable2FAUser } from '@/store/authSlice';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogDescription,
+  DialogFooter,
+} from '@/components/ui/dialog';
 import LoadingSpinner from '@/components/shared/LoadingSpinner';
 import EventCard from '@/components/shared/EventCard';
 import { logoutUser } from '@/store/authSlice';
@@ -34,12 +44,11 @@ export default function ProfilePage() {
     <div className="space-y-6">
       <ProfileHeader user={user} initials={initials} />
       <UserStats myEvents={myEvents} />
+      <TwoFactorSection />
       <RecentEvents myEvents={myEvents} isLoading={isLoading} />
     </div>
   );
 }
-
-
 
 function ProfileHeader({ user, initials }: { user: any; initials: string }) {
   const dispatch = useAppDispatch();
@@ -245,6 +254,142 @@ function RecentEvents({ myEvents, isLoading }: { myEvents: any[]; isLoading: boo
           </Button>
         </div>
       )}
+    </div>
+  );
+}
+
+function TwoFactorSection() {
+  const dispatch = useAppDispatch();
+  const { user, isLoading } = useAppSelector((s) => s.auth);
+  
+  const is2FAEnabled = !!user?.two_factor_enabled;
+
+  const [showDisableDialog, setShowDisableDialog] = useState(false);
+  const [disablePassword, setDisablePassword] = useState('');
+  const [disableError, setDisableError] = useState<string | null>(null);
+
+  const handleEnable = async () => {
+    try {
+      await dispatch(enable2FAUser()).unwrap();
+      toast.success('Two-factor authentication enabled.');
+    } catch (err: unknown) {
+      toast.error((err as string) ?? 'Failed to enable 2FA.');
+    }
+  };
+
+  const handleDisableConfirm = async () => {
+    if (!disablePassword.trim()) {
+      setDisableError('Password is required.');
+      return;
+    }
+    setDisableError(null);
+    try {
+      await dispatch(disable2FAUser({ password: disablePassword })).unwrap();
+      toast.success('Two-factor authentication disabled.');
+      setShowDisableDialog(false);
+      setDisablePassword('');
+    } catch (err: unknown) {
+      const msg = err as string;
+      if (msg?.toLowerCase().includes('password')) {
+        setDisableError('Incorrect password. Please try again.');
+      } else {
+        setDisableError(msg ?? 'Failed to disable 2FA.');
+      }
+    }
+  };
+
+  return (
+    <div className="bg-white rounded-xl border border-border p-6">
+      <div className="flex items-center gap-3 mb-4">
+        <div className="w-10 h-10 rounded-lg bg-blue-50 text-blue-600 border border-blue-200 flex items-center justify-center">
+          <Lock className="w-5 h-5" />
+        </div>
+        <div>
+          <h2 className="text-lg font-semibold text-gray-900">Two-Factor Authentication</h2>
+          <p className="text-sm text-muted-foreground">Add an extra layer of security to your account</p>
+        </div>
+      </div>
+
+      <div className="flex items-center justify-between rounded-lg border border-border p-4">
+        <div className="flex items-center gap-3">
+          {is2FAEnabled ? (
+            <div className="flex items-center gap-2 text-green-600">
+              <CheckCircle className="w-5 h-5" />
+              <span className="text-sm font-medium">2FA is enabled</span>
+            </div>
+          ) : (
+            <div className="flex items-center gap-2 text-muted-foreground">
+              <Shield className="w-5 h-5" />
+              <span className="text-sm font-medium">2FA is disabled</span>
+            </div>
+          )}
+        </div>
+
+        {is2FAEnabled ? (
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => { setShowDisableDialog(true); setDisableError(null); setDisablePassword(''); }}
+            className="text-red-600 border-red-300 hover:bg-red-50"
+          >
+            Disable 2FA
+          </Button>
+        ) : (
+          <Button
+            size="sm"
+            onClick={handleEnable}
+            disabled={isLoading}
+          >
+            {isLoading ? (
+              <span className="flex items-center gap-2"><LoadingSpinner className="w-3 h-3" /> Enabling...</span>
+            ) : 'Enable 2FA'}
+          </Button>
+        )}
+      </div>
+
+      {is2FAEnabled && (
+        <p className="text-xs text-muted-foreground mt-3">
+          A 6-digit code will be sent to your email each time you log in.
+        </p>
+      )}
+
+      {/* Disable 2FA Dialog */}
+      <Dialog open={showDisableDialog} onOpenChange={setShowDisableDialog}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Disable Two-Factor Authentication</DialogTitle>
+            <DialogDescription>
+              Enter your current password to confirm disabling 2FA.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="flex flex-col gap-3 py-2">
+            <Label htmlFor="disable-2fa-password">Current Password</Label>
+            <Input
+              id="disable-2fa-password"
+              type="password"
+              placeholder="••••••••"
+              value={disablePassword}
+              onChange={(e) => { setDisablePassword(e.target.value); setDisableError(null); }}
+              onKeyDown={(e) => { if (e.key === 'Enter') handleDisableConfirm(); }}
+            />
+            {disableError && (
+              <p className="text-sm text-red-500">{disableError}</p>
+            )}
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setShowDisableDialog(false)}>Cancel</Button>
+            <Button
+              variant="destructive"
+              onClick={handleDisableConfirm}
+              disabled={isLoading}
+            >
+              {isLoading ? (
+                <span className="flex items-center gap-2"><LoadingSpinner className="w-3 h-3" /> Disabling...</span>
+              ) : 'Disable 2FA'}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
