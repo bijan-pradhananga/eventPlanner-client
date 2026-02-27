@@ -8,6 +8,7 @@ import AppLayout from '@/components/layout/AppLayout';
 import LoginPage from '@/pages/auth/LoginPage';
 import SignUpPage from '@/pages/auth/SignUpPage';
 import EmailVerificationPage from '@/pages/auth/EmailVerificationPage';
+import Verify2FAPage from '@/pages/auth/Verify2FAPage';
 
 // App Pages
 import DashboardPage from '@/pages/DashboardPage';
@@ -26,6 +27,7 @@ function App() {
         <Route path="/login" element={<LoginPage />} />
         <Route path="/signup" element={<SignUpPage />} />
         <Route path="/verify-email" element={<EmailVerificationPage />} />
+        <Route path="/verify-2fa" element={<Verify2FAPage />} />
 
         {/* Protected App Routes */}
         <Route element={<AppLayout />}>
