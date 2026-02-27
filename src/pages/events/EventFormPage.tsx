@@ -2,7 +2,7 @@ import { useEffect } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
-import { CalendarDays } from 'lucide-react';
+import { CalendarDays, Loader2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -11,7 +11,7 @@ import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import TagSelector from '@/components/shared/TagSelector';
 import LoadingSpinner from '@/components/shared/LoadingSpinner';
 import DateTimePicker from '@/components/shared/DateTimePicker';
-import { createEventSchema, type CreateEventFormValues } from '@/lib/validations';
+import { createEventSchema, editEventSchema, type CreateEventFormValues, type EditEventFormValues } from '@/lib/validations';
 import { useAppDispatch, useAppSelector } from '@/store/hooks';
 import { createEvent, updateEvent, fetchEventById, clearSelectedEvent } from '@/store/eventsSlice';
 import { fetchAllTags } from '@/store/tagsSlice';
@@ -41,8 +41,8 @@ export default function EventFormPage({ mode }: EventFormPageProps) {
     watch,
     reset,
     formState: { errors },
-  } = useForm<CreateEventFormValues>({
-    resolver: zodResolver(createEventSchema),
+  } = useForm<CreateEventFormValues | EditEventFormValues>({
+    resolver: zodResolver(mode === 'edit' ? editEventSchema : createEventSchema),
     defaultValues: {
       event_type: 'public',
       tag_ids: [],
@@ -76,7 +76,7 @@ export default function EventFormPage({ mode }: EventFormPageProps) {
           : '',
         location: selectedEvent.location,
         event_type: selectedEvent.event_type,
-        tag_ids: selectedEvent.tags?.map((t) => t.id) ?? [],
+        tag_ids: Array.isArray(selectedEvent.tags) ? selectedEvent.tags.map((t) => t.id) : [],
       });
     }
   }, [selectedEvent, mode, reset]);
@@ -269,9 +269,12 @@ export default function EventFormPage({ mode }: EventFormPageProps) {
             Cancel
           </Button>
           <Button type="submit" disabled={isSubmitting} className="px-8 font-semibold">
-            {isSubmitting
-              ? mode === 'create' ? 'Creating...' : 'Saving...'
-              : mode === 'create' ? 'Create Event' : 'Save Changes'}
+            {isSubmitting ? (
+              <span className="flex items-center gap-2">
+                <Loader2 className="w-4 h-4 animate-spin text-white" />
+                {mode === 'create' ? 'Creating...' : 'Saving...'}
+              </span>
+            ) : mode === 'create' ? 'Create Event' : 'Save Changes'}
           </Button>
         </div>
       </form>
