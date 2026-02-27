@@ -6,8 +6,13 @@ export interface User {
   first_name: string;
   last_name: string;
   email_verified_at: string | null;
+  two_factor_enabled?: boolean;
   created_at?: string;
 }
+
+export type LoginResponse =
+  | { requires2FA: true; tempToken: string; message: string }
+  | { requires2FA: false; user: User; accessToken: string; refreshToken: string };
 
 export interface AuthTokens {
   accessToken: string;
