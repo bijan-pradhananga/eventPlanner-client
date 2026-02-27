@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
-import { Mail, Lock, CheckCircle2, Circle } from 'lucide-react';
+import { Mail, Lock, CheckCircle2, Circle, Loader2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -10,6 +10,7 @@ import { registerSchema, type RegisterFormValues } from '@/lib/validations';
 import { useAppDispatch, useAppSelector } from '@/store/hooks';
 import { registerUser, clearError } from '@/store/authSlice';
 import ErrorMessage from '@/components/shared/ErrorMessage';
+import { toast } from 'sonner';
 
 // Sign Up Page
 export default function SignUpPage() {
@@ -18,7 +19,10 @@ export default function SignUpPage() {
   const { isLoading, error, isAuthenticated } = useAppSelector((s) => s.auth);
 
   useEffect(() => {
-    if (isAuthenticated) navigate('/profile');
+    if (isAuthenticated){
+      toast.info('A email verification link has been sent to your inbox. Please verify your email.');
+      navigate('/profile');
+    } 
     return () => { dispatch(clearError()); };
   }, [isAuthenticated, navigate, dispatch]);
 
@@ -200,7 +204,11 @@ function SignUpForm({ onSubmit, isLoading }: SignUpFormProps) {
         disabled={isLoading}
         className="w-full h-12 text-base font-semibold mt-1"
       >
-        {isLoading ? 'Creating Account...' : 'Create Account'}
+        {isLoading ? (
+          <span className="flex items-center gap-2">
+            <Loader2 className="w-4 h-4 animate-spin text-white" /> Creating Account...
+          </span>
+        ) : 'Create Account'}
       </Button>
     </form>
   );
