@@ -76,6 +76,39 @@ export const createEventSchema = z.object({
   { message: 'Event date must be in the future', path: ['event_date'] }
 );
 
+export const editEventSchema = z.object({
+  title: z
+    .string()
+    .min(1, 'Event title is required')
+    .max(100, 'Title must be less than 100 characters'),
+  description: z
+    .string()
+    .min(1, 'Description is required')
+    .max(2000, 'Description must be less than 2000 characters'),
+  event_date: z
+    .string()
+    .min(1, 'Start date & time is required'),
+  event_end_date: z.string().optional(),
+  location: z
+    .string()
+    .min(1, 'Location is required')
+    .max(200, 'Location must be less than 200 characters'),
+  event_type: z.enum(['public', 'private']),
+  tag_ids: z.array(z.number()).optional(),
+})
+// End date must be after start date
+.refine(
+  (data) => {
+    if (data.event_end_date && data.event_date) {
+      return new Date(data.event_end_date) > new Date(data.event_date);
+    }
+    return true;
+  },
+  { message: 'End date must be after start date', path: ['event_end_date'] }
+);
+
+export type EditEventFormValues = z.infer<typeof editEventSchema>;
+
 export type LoginFormValues = z.infer<typeof loginSchema>;
 export type RegisterFormValues = z.infer<typeof registerSchema>;
 export type CreateEventFormValues = z.infer<typeof createEventSchema>;
