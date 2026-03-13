@@ -75,7 +75,7 @@ npm install
 # 3. Configure environment
 cp .env.example .env
 # Edit .env and set the API base URL:
-# VITE_API_BASE_URL=http://localhost:5173
+# VITE_API_URL=http://localhost:5173
 
 # 4. Start the development server
 npm run dev
